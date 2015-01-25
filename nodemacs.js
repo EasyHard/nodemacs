@@ -1,34 +1,55 @@
 #!/usr/bin/node
 
+var Q = require('q');
+
+Function.prototype.ubind = function ubind() {
+    var args = Array.prototype.slice.call(arguments);
+    return this.bind.apply(this, [undefined].concat(args));
+}
 var JsonParseStream = require('./json_parse_stream');
 var parse = new JsonParseStream();
 var vm = require('vm');
+var elisp = {
+    callfunc: function callfunc() {
+        var args = Array.prototype.slice.call(arguments);
+        var funcname = args.shift();
+        return putMessage({
+            type: "callfunc",
+            name: funcname,
+            args: args
+        });
+    }
+}
 process.stdin.pipe(parse);
 
-function putMessage(object, cb) {
+function putMessage(object) {
     var str = JSON.stringify(object) + "\n";
-    process.stdout.write(str, 'utf-8', cb);
+    return Q.ninvoke(process.stdout, "write", str, 'utf-8');
 }
 
 function sum() {
     var s = 0;
-    for (var i = 0; i < arguments.length - 1; i++)
+    for (var i = 0; i < arguments.length; i++)
       s += arguments[i];
-    arguments[arguments.length - 1](null, s);
+    return s;
 }
 
-function callfuncHandler(object, cb) {
+function createBufferAndInsert(buffername, text, cb) {
+    return elisp.callfunc("generate-new-buffer", "testbuffer")
+           .then(elisp.callfunc.bind(undefined, "set-buffer", "testbuffer"))
+           .then(elisp.callfunc.bind(undefined, "insert", text))
+           .nodeify(cb);
+}
+
+function callfuncHandler(object) {
     var funcname = object.funcname;
     var args = object.args;
-    try {
-        eval(funcname).apply(undefined, args.concat(cb));
-    } catch (e) {
-        cb(e);
-    }
+    var result = eval(funcname).apply(undefined, args);
+    return result;
 }
 
-function unknwonType(object, cb) {
-    cb("Unknown type");
+function unknwonType(object) {
+    return Q.reject("Unknown type");
 }
 
 var handlers = {
@@ -42,18 +63,19 @@ function handleMessage(object) {
     if (typeof handler === "undefined") {
         handler = handlers.default;
     }
-    handler(object, function (err, value) {
-        console.log(arguments);
-        if (err) {
-            putMessage({error: err.toString(), originCommand: object});
-        } else {
-            putMessage({value: value, originCommand: object});
-        }
-        parse.resume();
-    });
+    Q.promised(handler)(object).then(
+      function (value) {
+          return putMessage({value: value, originCommand: object});
+      },
+      function (err) {
+          return putMessage({error: err.toString(), originCommand: object});
+      }).finally(function (value) {
+            parse.once('data', handleMessage);
+            parse.resume();
+         });
 }
 
-parse.on('data', handleMessage);
+parse.once('data', handleMessage);
 parse.on('error', function (err) {
     console.error(err);
 })
