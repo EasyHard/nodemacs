@@ -69,10 +69,11 @@ function handleMessage(object) {
       },
       function (err) {
           return putMessage({error: err.toString(), originCommand: object});
-      }).finally(function (value) {
-            parse.once('data', handleMessage);
-            parse.resume();
-         });
+      })
+    .fin(function (value) {
+        parse.once('data', handleMessage);
+        parse.resume();
+    }).done();
 }
 
 parse.once('data', handleMessage);
