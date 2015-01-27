@@ -8,7 +8,6 @@ Function.prototype.ubind = function ubind() {
 }
 var JsonParseStream = require('./json_parse_stream');
 var parse = new JsonParseStream();
-var vm = require('vm');
 var elisp = {
     callfunc: function callfunc() {
         var args = Array.prototype.slice.call(arguments);
