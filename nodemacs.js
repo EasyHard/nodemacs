@@ -1,25 +1,36 @@
 #!/usr/bin/node
 
 var Q = require('q');
-
-Function.prototype.ubind = function ubind() {
-    var args = Array.prototype.slice.call(arguments);
-    return this.bind.apply(this, [undefined].concat(args));
-}
+var PromisedStream = require('./promised_stream');
 var JsonParseStream = require('./json_parse_stream');
 var parse = new JsonParseStream();
+var promisedReader = new PromisedStream(parse);
+process.stdin.pipe(parse);
+
 var elisp = {
-    callfunc: function callfunc() {
+    callfunc: function callfunc(funcname, arg0, arg1) {
         var args = Array.prototype.slice.call(arguments);
         var funcname = args.shift();
         return putMessage({
             type: "callfunc",
             name: funcname,
             args: args
-        });
+        }).then(promisedReader.read);
+    },
+    eval: function eval(stream) {
+      var self = this;
+      var p = stream.read();
+      return p.then(handleMessage)
+              .then(self.eval.bind(self, stream))
+              .fail(function (reason) {
+                if (reason === null)
+                  return Q('well done!');
+                else
+                  return Q.reject(reason);
+              });
     }
 }
-process.stdin.pipe(parse);
+
 
 function putMessage(object) {
     var str = JSON.stringify(object) + "\n";
@@ -33,11 +44,10 @@ function sum() {
     return s;
 }
 
-function createBufferAndInsert(buffername, text, cb) {
+function createBufferAndInsert(buffername, text) {
     return elisp.callfunc("generate-new-buffer", "testbuffer")
-           .then(elisp.callfunc.bind(undefined, "set-buffer", "testbuffer"))
-           .then(elisp.callfunc.bind(undefined, "insert", text))
-           .nodeify(cb);
+           .then(elisp.callfunc.bind(elisp, "set-buffer", "testbuffer"))
+           .then(elisp.callfunc.bind(elisp, "insert", text));
 }
 
 function callfuncHandler(object) {
@@ -57,25 +67,17 @@ var handlers = {
 };
 
 function handleMessage(object) {
-    parse.pause();
     var handler = handlers[object.type];
     if (typeof handler === "undefined") {
         handler = handlers.default;
     }
-    Q.promised(handler)(object).then(
+    return Q.promised(handler)(object).then(
       function (value) {
           return putMessage({value: value, originCommand: object});
       },
       function (err) {
           return putMessage({error: err.toString(), originCommand: object});
-      })
-    .fin(function (value) {
-        parse.once('data', handleMessage);
-        parse.resume();
-    }).done();
+      });
 }
 
-parse.once('data', handleMessage);
-parse.on('error', function (err) {
-    console.error(err);
-})
+elisp.eval(promisedReader);
