@@ -1,0 +1,23 @@
+{
+  "name": "nodemacs",
+  "version": "1.0.0",
+  "description": "communication vetween emacs and nodejs",
+  "main": "nodemacs.js",
+  "dependencies": {
+    "q": "^1.1.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EasyHard/nodemacs.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EasyHard/nodemacs/issues"
+  },
+  "homepage": "https://github.com/EasyHard/nodemacs"
+}
