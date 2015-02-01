@@ -1,21 +1,11 @@
 var assert = require('chai').assert;
 var MockReadable = require('./mock_readable');
-
+var nDone = require('./util').nDone;
 describe('MockReadable', function () {
   beforeEach(function (done) {
     this.mock = new MockReadable();
     done();
   });
-
-  function nDone(n, done) {
-    return function(err) {
-      if (err)
-        return done(err);
-      n--;
-      if (n == 0)
-        return done();
-    };
-  }
 
   it('add value & end', function (done) {
     var value = 'test';
