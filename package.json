@@ -4,11 +4,13 @@
   "description": "communication vetween emacs and nodejs",
   "main": "nodemacs.js",
   "dependencies": {
+    "chai": "^1.10.0",
+    "mocha": "^2.1.0",
     "q": "^1.1.2"
   },
   "devDependencies": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha -t 100 tests"
   },
   "repository": {
     "type": "git",
